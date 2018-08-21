@@ -1,7 +1,8 @@
 package com.bsoft.deploy.netty.client;
 
-import com.bsoft.deploy.SlaveApplication;
+import com.bsoft.deploy.context.Global;
 import com.bsoft.deploy.dao.entity.AppFile;
+import com.bsoft.deploy.dao.entity.Order;
 import com.bsoft.deploy.file.FileWorker;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -9,6 +10,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 子节点接收文件传输列表
@@ -21,7 +24,25 @@ public class SimpleFileClientHandler extends SimpleChannelInboundHandler<Object>
 
     @Override
     protected void channelRead0(ChannelHandlerContext channelHandlerContext, Object o) throws Exception {
-        AppFile file = (AppFile) o;
+        logger.debug("收到服务器信息:" + o.toString());
+        if (o instanceof AppFile) {
+            // 处理文件
+            fileReceive((AppFile) o);
+        } else if (o instanceof Order) {
+            Order order = (Order) o;
+            orderReceive(order);
+            if(order.getUniqueId() != null) {
+                channelHandlerContext.channel().writeAndFlush(order);
+            }
+        }
+    }
+
+    /**
+     * 文件接收
+     *
+     * @param file
+     */
+    private void fileReceive(AppFile file) {
         try {
             FileWorker fw = new FileWorker();
             if (fw.receive(file)) {
@@ -31,7 +52,25 @@ public class SimpleFileClientHandler extends SimpleChannelInboundHandler<Object>
                 // todo 失败的处理流程
             }
         } catch (Exception e) {
-            logger.error("{}文件同步失败!",file.getName(), e);
+            logger.error("{}文件同步失败!", file.getName(), e);
+        }
+    }
+
+    /**
+     * 命令执行
+     *
+     * @param order
+     */
+    private void orderReceive(Order order) {
+        try {
+            order.setRespData(OrderRunner.execute(order));
+        } catch (Exception e) {
+            logger.error("命令处理失败!", e);
+            Map<String, Object> respData = new HashMap<>();
+            respData.put("code", 300);
+            respData.put("message", e.getMessage());
+            order.setReqData(null);
+            order.setRespData(respData);
         }
     }
 
@@ -54,7 +93,7 @@ public class SimpleFileClientHandler extends SimpleChannelInboundHandler<Object>
             @Override
             public void run() {
                 // 重连
-                SimpleFileClient client = SlaveApplication.getContext().getBean(SimpleFileClient.class);
+                SimpleFileClient client = Global.getAppContext().getBean(SimpleFileClient.class);
                 client.start();
             }
         });

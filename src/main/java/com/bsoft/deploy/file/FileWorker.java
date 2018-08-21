@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.Date;
 
 /**
  * 接收master传输的文件
@@ -45,8 +46,9 @@ public class FileWorker {
                         return false;
                     }
                 }
-                // 保存备份文件
-                File backup_file = new File(backup_file_path + File.separator + file.getName());
+                // 保存备份文件 重命名备份文件
+                int hashcode = (file.getName() + file.getMark()).hashCode();
+                File backup_file = new File(backup_file_path + File.separator + hashcode);
                 FileUtils.copyFile(f, backup_file);
 
                 // 文件是否允许操作
@@ -70,6 +72,9 @@ public class FileWorker {
                 }
             }
             // 同步成功
+            // 更新slave_app_file的mark和optime
+            saveOrUpdateSlaveAppFile(file);
+            // 回写同步成功标志
             updateSlaveLog(1, "", file.getLogId());
         } catch (Exception e) {
             // 同步失败
@@ -77,8 +82,12 @@ public class FileWorker {
             logger.error("文件[{}]同步失败!", file.getName(), e);
         }
 
-        // 更新日志传输成功标志
         return true;
+    }
+
+    private void saveOrUpdateSlaveAppFile(AppFile file) {
+
+        Global.getSlaveAppFileMapper().updateSlaveFile(file.getMark(), new Date(), file.getId());
     }
 
     private void updateSlaveLog(int status, String message, int logId) {
