@@ -43,43 +43,43 @@ public class OrderRunner {
         return respData;
     }
 
-    private static void isTomcatRun(Map reqData, Map respData) throws CommandExecuteException {
+    private static void isTomcatRun(Map<String, Object> reqData, Map<String, Object> respData) throws CommandExecuteException {
         int slaveAppId = (int) reqData.get("slaveAppId");
         String port = Global.getSlaveStore().getSlaveAppPort(slaveAppId);
         boolean isRun = CmdLineFactory.getInstance().isTomcatRunning(port);
         respData.put("isRun", isRun);
     }
 
-    private static void startTomcat(Map reqData, Map respData) throws CommandExecuteException {
+    private static void startTomcat(Map reqData, Map<String, Object> respData) throws CommandExecuteException {
         int slaveAppId = (int) reqData.get("slaveAppId");
         String port = Global.getSlaveStore().getSlaveAppPort(slaveAppId);
         boolean isRun = CmdLineFactory.getInstance().isTomcatRunning(port);
         if (isRun) {
-            respData.put("isRun", isRun);
+            respData.put("isRun", true);
             return;
         }
         String tomcatHome = Global.getSlaveStore().getSlaveApp(slaveAppId).getAppTomcatHome();
         CmdLineFactory.getInstance().startupTomcat(tomcatHome);
-
     }
 
-    private static void stopTomcat(Map reqData, Map respData) throws CommandExecuteException {
+    private static void stopTomcat(Map reqData, Map<String, Object> respData) throws CommandExecuteException {
         int slaveAppId = (int) reqData.get("slaveAppId");
         String port = Global.getSlaveStore().getSlaveAppPort(slaveAppId);
         boolean isRun = CmdLineFactory.getInstance().isTomcatRunning(port);
         if (!isRun) {
-            respData.put("isRun", isRun);
+            respData.put("isRun", false);
             return;
         }
         String tomcatHome = Global.getSlaveStore().getSlaveApp(slaveAppId).getAppTomcatHome();
         CmdLineFactory.getInstance().shutdownTomcat(tomcatHome);
+        respData.put("isRun", false);
     }
 
     private static void reloadCache() {
         Global.getSlaveStore().reloadAll();
     }
 
-    private static void threadDump(Map reqData, Map respData) throws CommandExecuteException {
+    private static void threadDump(Map reqData, Map<String, Object> respData) throws CommandExecuteException {
         int slaveAppId = (int) reqData.get("slaveAppId");
         String port = Global.getSlaveStore().getSlaveAppPort(slaveAppId);
         String pid = CmdLineFactory.getInstance().getTomcatPid(port);
