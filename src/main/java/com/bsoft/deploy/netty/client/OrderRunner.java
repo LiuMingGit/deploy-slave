@@ -4,8 +4,12 @@ import com.bsoft.deploy.command.CmdLineFactory;
 import com.bsoft.deploy.context.Constant;
 import com.bsoft.deploy.context.Global;
 import com.bsoft.deploy.dao.entity.Order;
+import com.bsoft.deploy.dao.entity.SlaveApp;
+import com.bsoft.deploy.dao.mapper.SlaveMapper;
 import com.bsoft.deploy.exception.CommandExecuteException;
+import com.bsoft.deploy.utils.FileUtils;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,10 +41,50 @@ public class OrderRunner {
             case Constant.CMD_THREAD_DUMP:
                 threadDump(order.getReqData(), respData);
                 break;
+            case Constant.CMD_APP_BACKUP:
+                appBackup(order.getReqData(), respData);
+                break;
         }
         // 去除请求数据,减少传输量
         order.setReqData(null);
         return respData;
+    }
+
+    private static void appBackup(Map<String, Object> reqData, Map<String, Object> respData) throws CommandExecuteException {
+        int slaveAppId = (int) reqData.get("slaveAppId");
+        SlaveMapper slaveMapper = Global.getAppContext().getBean(SlaveMapper.class);
+        SlaveApp slaveApp = slaveMapper.findSlaveAppById(slaveAppId);
+        String backup_path = slaveApp.getAppBackupPath();
+        String tomcat_home = slaveApp.getAppTomcatHome();
+        String target_path = slaveApp.getAppTargetPath();
+        String port = Global.getSlaveStore().getSlaveAppPort(slaveAppId);
+        boolean isRun = CmdLineFactory.getInstance().isTomcatRunning(port);
+        if (isRun) {
+            CmdLineFactory.getInstance().shutdownTomcat(tomcat_home);
+        }
+        int reTry = 0;
+        while (isRun) {
+            if (reTry > 20) {
+                throw new CommandExecuteException("tomcat无法正常关闭!");
+            }
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                // slient
+            }
+            reTry++;
+            isRun = CmdLineFactory.getInstance().isTomcatRunning(port);
+        }
+
+        try {
+            File target = new File(target_path);
+            FileUtils.copyFile(target, new File(backup_path));
+            FileUtils.deleteDir(target);
+        } catch (Exception e) {
+            throw new CommandExecuteException("文件备份失败!", e);
+        }
+
+        respData.put("code", 1);
     }
 
     private static void isTomcatRun(Map<String, Object> reqData, Map<String, Object> respData) throws CommandExecuteException {

@@ -23,11 +23,12 @@ public class FileWorker {
     private final static Logger logger = LoggerFactory.getLogger(FileWorker.class);
 
 
-    private String appPath = "D:/workspace_ideal/deploy/master_target/";
+    // private String appPath = "D:/workspace_ideal/deploy/master_target/";
     private String backup_dir = "D:/workspace_ideal/deploy/master_backup/";
 
     public boolean receive(AppFile file) throws Exception {
         try {
+            String appPath = Global.getSlaveStore().getSlaveApp(file.getSlaveAppId()).getAppTargetPath();
             File baseDir = new File(appPath);
             if (!baseDir.exists()) {
                 if (!baseDir.mkdirs()) {
