@@ -77,13 +77,13 @@ public class FileWorker {
             saveOrUpdateSlaveAppFile(file);
             // 回写同步成功标志
             updateSlaveLog(1, "", file.getLogId());
+            return true;
         } catch (Exception e) {
             // 同步失败
             updateSlaveLog(-1, e.getMessage(), file.getLogId());
             logger.error("文件[{}]同步失败!", file.getName(), e);
+            return false;
         }
-
-        return true;
     }
 
     private void saveOrUpdateSlaveAppFile(AppFile file) {

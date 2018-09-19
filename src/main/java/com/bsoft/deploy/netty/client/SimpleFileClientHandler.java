@@ -1,5 +1,6 @@
 package com.bsoft.deploy.netty.client;
 
+import com.bsoft.deploy.context.Constant;
 import com.bsoft.deploy.context.Global;
 import com.bsoft.deploy.dao.entity.AppFile;
 import com.bsoft.deploy.dao.entity.Order;
@@ -27,7 +28,16 @@ public class SimpleFileClientHandler extends SimpleChannelInboundHandler<Object>
         logger.debug("收到服务器信息:" + o.toString());
         if (o instanceof AppFile) {
             // 处理文件
-            fileReceive((AppFile) o);
+            AppFile file = (AppFile) o;
+            boolean success = fileReceive(file);
+            Order order = new Order();
+            order.setType(Constant.CMD_FILE_STATUS);
+            Map<String,Object> resp = new HashMap<>();
+            resp.put("updateId",file.getUpdateId());
+            resp.put("success",success);
+            resp.put("slaveAppId",file.getSlaveAppId());
+            order.setRespData(resp);
+            channelHandlerContext.channel().writeAndFlush(order);
         } else if (o instanceof Order) {
             Order order = (Order) o;
             orderReceive(order);
@@ -42,11 +52,12 @@ public class SimpleFileClientHandler extends SimpleChannelInboundHandler<Object>
      *
      * @param file
      */
-    private void fileReceive(AppFile file) {
+    private boolean fileReceive(AppFile file) {
         try {
             FileWorker fw = new FileWorker();
             if (fw.receive(file)) {
                 logger.info(file.getName() + " 同步成功");
+                return true;
             } else {
                 logger.error(file.getName() + " 同步失败");
                 // todo 失败的处理流程
@@ -54,6 +65,7 @@ public class SimpleFileClientHandler extends SimpleChannelInboundHandler<Object>
         } catch (Exception e) {
             logger.error("{}文件同步失败!", file.getName(), e);
         }
+        return false;
     }
 
     /**
