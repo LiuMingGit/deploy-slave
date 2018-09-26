@@ -1,5 +1,6 @@
 package com.bsoft.deploy;
 
+import com.bsoft.deploy.command.CmdLineFactory;
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecutor;
 import org.apache.commons.exec.ExecuteWatchdog;
@@ -18,8 +19,16 @@ import java.io.IOException;
 public class CommandLineTest {
 
     public static void main(String[] args) throws Exception {
+        /*ClassPathResource exclude_file = new ClassPathResource("exclude.txt");
+        System.out.println(exclude_file.getFile().exists());
+        System.out.println(exclude_file.getFile().getAbsoluteFile());*/
+        // System.out.println(System.getProperty("file.encoding"));
+        long begin = System.currentTimeMillis();
+        CmdLineFactory.getInstance().backupAndRemoveApp("D:\\workspace_ideal\\deploy\\master_backup\\deploy","D:\\develop\\apache-tomcat7_8889\\webapps");
+        long end = System.currentTimeMillis();
+        System.out.println("文件拷贝共耗时:" + (end - begin)+"ms");
 
-        netStat();
+        // netStat();
         //executor.setStreamHandler(streamHandler);
        /* new Thread(new Runnable() {
             @Override

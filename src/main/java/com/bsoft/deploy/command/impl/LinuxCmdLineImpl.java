@@ -35,5 +35,20 @@ public class LinuxCmdLineImpl implements CmdLine {
         return null;
     }
 
+    @Override
+    public boolean backupApp(String srcPath, String backupPath) {
+        return false;
+    }
+
+    @Override
+    public boolean removeApp(String path) throws CommandExecuteException {
+        return false;
+    }
+
+    @Override
+    public boolean backupAndRemoveApp(String srcPath, String backupPath) {
+        return false;
+    }
+
 
 }

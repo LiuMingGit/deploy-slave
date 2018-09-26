@@ -8,6 +8,7 @@ import org.apache.commons.exec.DefaultExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.helpers.MessageFormatter;
+import org.springframework.core.io.ClassPathResource;
 
 import java.io.*;
 
@@ -56,6 +57,7 @@ public class WinCmdLineImpl implements CmdLine {
             executor.execute(cmd);
         } catch (IOException e) {
             logger.error("关闭tomcat失败!", e);
+            return false;
         }
         return true;
     }
@@ -147,7 +149,72 @@ public class WinCmdLineImpl implements CmdLine {
         return null;
     }
 
-    public static void main(String[] args) throws CommandExecuteException {
-        new WinCmdLineImpl().threadDump("36520");
+    @Override
+    public boolean backupApp(String srcPath, String backupPath) throws CommandExecuteException {
+        StringBuilder cmd = new StringBuilder();
+        try {
+            if (srcPath.endsWith("/") || srcPath.endsWith("\\")) {
+                srcPath = srcPath.substring(0, srcPath.length() - 1);
+            }
+            cmd.append("cmd /c xcopy /e /i /q /y ");
+            ClassPathResource exclude_file = new ClassPathResource("exclude.txt");
+            if (exclude_file.exists()) {
+                cmd.append("/exclude:");
+                cmd.append(exclude_file.getFile().getAbsolutePath());
+            }
+            // 文件路径加双引号
+            cmd.append(" \"");
+            cmd.append(srcPath);
+            cmd.append("\" \"");
+            cmd.append(backupPath);
+            cmd.append("\"");
+            return executeCommand(cmd.toString());
+        } catch (Exception e) {
+            logger.error("命令[{}]执行失败!", cmd.toString());
+            throw new CommandExecuteException("应用备份失败!原因:" + e.getMessage());
+        }
     }
+
+    @Override
+    public boolean removeApp(String path) throws CommandExecuteException {
+        try {
+            return executeCommand("cmd /c rmdir /s /q \"" + path + "\"");
+        } catch (IOException | InterruptedException e) {
+            throw new CommandExecuteException("应用删除失败!", e);
+        }
+    }
+
+
+    /**
+     * 采用先copy,后delete方式
+     * ps:move 不支持跨分区,如c盘移动到d盘,且不能过滤
+     *
+     * @param srcPath
+     * @param backupPath
+     * @return
+     * @throws CommandExecuteException
+     */
+    @Override
+    public boolean backupAndRemoveApp(String srcPath, String backupPath) throws CommandExecuteException {
+        return backupApp(srcPath, backupPath) && removeApp(srcPath);
+    }
+
+    private boolean executeCommand(String cmd) throws IOException, InterruptedException, CommandExecuteException {
+        Runtime runtime = Runtime.getRuntime();
+        Process process = runtime.exec(cmd);
+        int exit = process.waitFor();
+        if (exit == 0) {
+            return true;
+        } else {
+            StringBuilder error = new StringBuilder();
+            String line;
+            BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream(), "gbk"));
+            while ((line = br.readLine()) != null) {
+                error.append(line);
+            }
+            logger.error("命令[{}]执行失败!", cmd);
+            throw new CommandExecuteException(error.toString());
+        }
+    }
+
 }

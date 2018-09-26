@@ -1,15 +1,14 @@
 package com.bsoft.deploy.netty.client;
 
+import com.bsoft.deploy.command.CmdLine;
 import com.bsoft.deploy.command.CmdLineFactory;
 import com.bsoft.deploy.context.Constant;
 import com.bsoft.deploy.context.Global;
 import com.bsoft.deploy.dao.entity.Order;
 import com.bsoft.deploy.dao.entity.SlaveApp;
-import com.bsoft.deploy.dao.mapper.SlaveMapper;
 import com.bsoft.deploy.exception.CommandExecuteException;
 import com.bsoft.deploy.utils.FileUtils;
 
-import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -50,17 +49,23 @@ public class OrderRunner {
         return respData;
     }
 
+    /**
+     * 全量备份
+     * @param reqData
+     * @param respData
+     * @throws CommandExecuteException
+     */
     private static void appBackup(Map<String, Object> reqData, Map<String, Object> respData) throws CommandExecuteException {
         int slaveAppId = (int) reqData.get("slaveAppId");
-        SlaveMapper slaveMapper = Global.getAppContext().getBean(SlaveMapper.class);
-        SlaveApp slaveApp = slaveMapper.findSlaveAppById(slaveAppId);
+        SlaveApp slaveApp = Global.getSlaveStore().getSlaveApp(slaveAppId);
         String backup_path = slaveApp.getAppBackupPath();
         String tomcat_home = slaveApp.getAppTomcatHome();
         String target_path = slaveApp.getAppTargetPath();
         String port = Global.getSlaveStore().getSlaveAppPort(slaveAppId);
-        boolean isRun = CmdLineFactory.getInstance().isTomcatRunning(port);
+        CmdLine cmdLine = CmdLineFactory.getInstance();
+        boolean isRun = cmdLine.isTomcatRunning(port);
         if (isRun) {
-            CmdLineFactory.getInstance().shutdownTomcat(tomcat_home);
+            cmdLine.shutdownTomcat(tomcat_home);
         }
         int reTry = 0;
         while (isRun) {
@@ -75,16 +80,11 @@ public class OrderRunner {
             reTry++;
             isRun = CmdLineFactory.getInstance().isTomcatRunning(port);
         }
-
-        try {
-            File target = new File(target_path);
-            FileUtils.copyFile(target, new File(backup_path));
-            FileUtils.deleteDir(target);
-        } catch (Exception e) {
-            throw new CommandExecuteException("文件备份失败!", e);
+        // 判断是否存在有效的应用
+        if(FileUtils.exists(target_path)) {
+            String appBackupName = "bak_" + slaveApp.getId() + "_" + slaveApp.getPkgId();
+            cmdLine.backupAndRemoveApp(target_path, backup_path + appBackupName);
         }
-
-        respData.put("code", 1);
     }
 
     private static void isTomcatRun(Map<String, Object> reqData, Map<String, Object> respData) throws CommandExecuteException {

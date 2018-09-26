@@ -3,15 +3,15 @@ package com.bsoft.deploy.file;
 import com.bsoft.deploy.context.Global;
 import com.bsoft.deploy.dao.entity.AppFile;
 import com.bsoft.deploy.dao.entity.FileLog;
+import com.bsoft.deploy.dao.entity.SlaveApp;
+import com.bsoft.deploy.dao.mapper.AppFileMapper;
 import com.bsoft.deploy.exception.FileOperationException;
-import com.bsoft.deploy.utils.DateUtils;
 import com.bsoft.deploy.utils.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.util.Date;
 
 /**
  * 接收master传输的文件
@@ -39,8 +39,11 @@ public class FileWorker {
             File f = new File(appPath + file.getRelative());
             // 文件存在先备份
             if (f.exists()) {
-                String today = DateUtils.getNow("yyyyMMdd");
-                String backup_file_path = backup_dir + today;
+                int slaveAppId = file.getSlaveAppId();
+                SlaveApp slaveApp = Global.getSlaveStore().getSlaveApp(slaveAppId);
+                String backup_path = slaveApp.getAppBackupPath();
+                String appBackupName = "bak_" + slaveApp.getId() + "_" + slaveApp.getPkgId();
+                String backup_file_path = backup_path + appBackupName;
                 File backup_today = new File(backup_file_path);
                 if (!backup_today.exists()) {
                     if (!backup_today.mkdirs()) {
@@ -48,19 +51,24 @@ public class FileWorker {
                     }
                 }
                 // 保存备份文件 重命名备份文件
-                int hashcode = (file.getName() + file.getMark()).hashCode();
-                File backup_file = new File(backup_file_path + File.separator + hashcode);
+                // int hashcode = (file.getName() + file.getMark()).hashCode();
+                File backup_file = new File(backup_file_path + File.separator + file.getRelative());
+                String fileDir = FileUtils.getFilePath(backup_file.getAbsolutePath());
+                File dir = new File(fileDir);
+                if(!dir.exists()) {
+                    dir.mkdirs();
+                }
                 FileUtils.copyFile(f, backup_file);
 
                 // 文件是否允许操作
                 if (!f.canWrite()) {
                     throw new FileOperationException("文件操作失败:目标文件不允许写入!");
                 }
-
             } else {
                 String dir = FileUtils.getFilePath(f.getAbsolutePath());
                 new File(dir).mkdirs();
             }
+            logger.debug("文件[{}]备份完成!",file.getName());
             // 更新文件
             FileOutputStream fos = null;
             try {
@@ -73,8 +81,6 @@ public class FileWorker {
                 }
             }
             // 同步成功
-            // 更新slave_app_file的mark和optime
-            saveOrUpdateSlaveAppFile(file);
             // 回写同步成功标志
             updateSlaveLog(1, "", file.getLogId());
             return true;
@@ -86,16 +92,11 @@ public class FileWorker {
         }
     }
 
-    private void saveOrUpdateSlaveAppFile(AppFile file) {
-
-        Global.getSlaveAppFileMapper().updateSlaveFile(file.getMark(), new Date(), file.getId());
-    }
-
     private void updateSlaveLog(int status, String message, int logId) {
         FileLog fileLog = new FileLog();
         fileLog.setStatus(status);
         fileLog.setMessage(message);
         fileLog.setId(logId);
-        Global.getFileMapper().updateFileTransferLog(fileLog);
+        Global.getAppContext().getBean(AppFileMapper.class).updateFileTransferLog(fileLog);
     }
 }
