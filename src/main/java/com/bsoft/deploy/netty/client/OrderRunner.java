@@ -8,6 +8,7 @@ import com.bsoft.deploy.dao.entity.Order;
 import com.bsoft.deploy.dao.entity.SlaveApp;
 import com.bsoft.deploy.exception.CommandExecuteException;
 import com.bsoft.deploy.utils.FileUtils;
+import com.bsoft.deploy.utils.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -35,7 +36,7 @@ public class OrderRunner {
                 stopTomcat(order.getReqData(), respData);
                 break;
             case Constant.CMD_RELOAD_CACHE:
-                reloadCache();
+                reloadCache(order.getReqData());
                 break;
             case Constant.CMD_THREAD_DUMP:
                 threadDump(order.getReqData(), respData);
@@ -51,6 +52,7 @@ public class OrderRunner {
 
     /**
      * 全量备份
+     *
      * @param reqData
      * @param respData
      * @throws CommandExecuteException
@@ -81,7 +83,7 @@ public class OrderRunner {
             isRun = CmdLineFactory.getInstance().isTomcatRunning(port);
         }
         // 判断是否存在有效的应用
-        if(FileUtils.exists(target_path)) {
+        if (FileUtils.exists(target_path)) {
             String appBackupName = "bak_" + slaveApp.getId() + "_" + slaveApp.getPkgId();
             cmdLine.backupAndRemoveApp(target_path, backup_path + appBackupName);
         }
@@ -119,8 +121,24 @@ public class OrderRunner {
         respData.put("isRun", false);
     }
 
-    private static void reloadCache() {
-        Global.getSlaveStore().reloadAll();
+    private static void reloadCache(Map reqData) {
+        if (reqData != null) {
+            String target = (String) reqData.get("target");
+            int id = (int) reqData.get("id");
+            if (StringUtils.isEq("ALL", target)) {
+                Global.getAppStore().reloadAll();
+                Global.getSlaveStore().reloadAll();
+            } else if (StringUtils.isEq("app", target)) {
+                Global.getAppStore().reload(id);
+            } else if (StringUtils.isEq("appFile", target)) {
+                Global.getAppStore().reloadFiles(id);
+            } else if (StringUtils.isEq("slave", target)) {
+                Global.getSlaveStore().reloadSlave(id);
+            } else if (StringUtils.isEq("slaveApp", target)) {
+                Global.getSlaveStore().reloadSlaveApp(id);
+            }
+        }
+
     }
 
     private static void threadDump(Map reqData, Map<String, Object> respData) throws CommandExecuteException {

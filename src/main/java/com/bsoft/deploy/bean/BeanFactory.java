@@ -1,6 +1,7 @@
 package com.bsoft.deploy.bean;
 
 import com.bsoft.deploy.context.Global;
+import com.bsoft.deploy.context.store.AppStore;
 import com.bsoft.deploy.context.store.SlaveStore;
 import com.bsoft.deploy.netty.client.SimpleFileClient;
 import org.springframework.context.annotation.Bean;
@@ -23,6 +24,11 @@ public class BeanFactory {
     @Bean
     Global initGlobal() {
         return new Global();
+    }
+
+    @Bean
+    AppStore createAppStore() {
+        return new AppStore();
     }
 
     @Bean

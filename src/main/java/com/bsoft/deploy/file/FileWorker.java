@@ -26,9 +26,10 @@ public class FileWorker {
     // private String appPath = "D:/workspace_ideal/deploy/master_target/";
     private String backup_dir = "D:/workspace_ideal/deploy/master_backup/";
 
-    public boolean receive(AppFile file) throws Exception {
+    public static boolean receive(AppFile file) throws Exception {
         try {
-            String appPath = Global.getSlaveStore().getSlaveApp(file.getSlaveAppId()).getAppTargetPath();
+            SlaveApp slaveApp = Global.getSlaveStore().getSlaveApp(file.getSlaveAppId());
+            String appPath = slaveApp.getAppTargetPath();
             File baseDir = new File(appPath);
             if (!baseDir.exists()) {
                 if (!baseDir.mkdirs()) {
@@ -37,17 +38,22 @@ public class FileWorker {
             }
 
             File f = new File(appPath + file.getRelative());
+            String backup_path = slaveApp.getAppBackupPath();
+            String appBackupName = "bak_" + slaveApp.getId() + "_" + slaveApp.getPkgId();
+            String backup_file_path = backup_path + appBackupName;
+            File backupDir = new File(backup_file_path);
+            boolean isUpdateIgnore = Global.getAppStore().getAppFiles(slaveApp.getAppId()).contains(file.getRelative());
             // 文件存在先备份
             if (f.exists()) {
-                int slaveAppId = file.getSlaveAppId();
-                SlaveApp slaveApp = Global.getSlaveStore().getSlaveApp(slaveAppId);
-                String backup_path = slaveApp.getAppBackupPath();
-                String appBackupName = "bak_" + slaveApp.getId() + "_" + slaveApp.getPkgId();
-                String backup_file_path = backup_path + appBackupName;
-                File backup_today = new File(backup_file_path);
-                if (!backup_today.exists()) {
-                    if (!backup_today.mkdirs()) {
-                        return false;
+                // 更新忽略
+                if (isUpdateIgnore) {
+                    updateSlaveLog(1, "", file.getLogId());
+                    return true;
+                }
+
+                if (!backupDir.exists()) {
+                    if (!backupDir.mkdirs()) {
+                        return true;
                     }
                 }
                 // 保存备份文件 重命名备份文件
@@ -55,20 +61,30 @@ public class FileWorker {
                 File backup_file = new File(backup_file_path + File.separator + file.getRelative());
                 String fileDir = FileUtils.getFilePath(backup_file.getAbsolutePath());
                 File dir = new File(fileDir);
-                if(!dir.exists()) {
+                if (!dir.exists()) {
                     dir.mkdirs();
                 }
                 FileUtils.copyFile(f, backup_file);
 
                 // 文件是否允许操作
                 if (!f.canWrite()) {
-                    throw new FileOperationException("文件操作失败:目标文件不允许写入!");
+                    throw new FileOperationException("文件操作失败:文件[" + file.getName() + "]不允许写入!");
                 }
             } else {
                 String dir = FileUtils.getFilePath(f.getAbsolutePath());
                 new File(dir).mkdirs();
+                // 全量更新需要重新覆盖更新忽略的文件
+                if (isUpdateIgnore && backupDir.exists()) {
+                    logger.debug("文件[{}]覆盖完成!", file.getName());
+                    File backupFile = new File(backupDir + File.separator + file.getRelative());
+                    if(backupFile.exists()) {
+                        FileUtils.copyFile(backupFile, f);
+                        updateSlaveLog(1, "", file.getLogId());
+                        return true;
+                    }
+                }
             }
-            logger.debug("文件[{}]备份完成!",file.getName());
+            logger.debug("文件[{}]备份完成!", file.getName());
             // 更新文件
             FileOutputStream fos = null;
             try {
@@ -92,7 +108,7 @@ public class FileWorker {
         }
     }
 
-    private void updateSlaveLog(int status, String message, int logId) {
+    private static void updateSlaveLog(int status, String message, int logId) {
         FileLog fileLog = new FileLog();
         fileLog.setStatus(status);
         fileLog.setMessage(message);

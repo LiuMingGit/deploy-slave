@@ -144,7 +144,8 @@ public class WinCmdLineImpl implements CmdLine {
                 return thread;
             }
         } catch (IOException e) {
-            throw new CommandExecuteException("获取tomcat端口号执行失败!", e);
+            logger.error("获取tomcat端口号执行失败", e);
+            throw new CommandExecuteException("获取tomcat端口号执行失败!原因:" + e.getMessage());
         }
         return null;
     }
@@ -170,17 +171,19 @@ public class WinCmdLineImpl implements CmdLine {
             cmd.append("\"");
             return executeCommand(cmd.toString());
         } catch (Exception e) {
-            logger.error("命令[{}]执行失败!", cmd.toString());
+            logger.error("命令[{}]执行失败!", cmd.toString(), e);
             throw new CommandExecuteException("应用备份失败!原因:" + e.getMessage());
         }
     }
 
     @Override
     public boolean removeApp(String path) throws CommandExecuteException {
+        String cmd = "cmd /c rmdir /s /q \"" + path + "\"";
         try {
-            return executeCommand("cmd /c rmdir /s /q \"" + path + "\"");
-        } catch (IOException | InterruptedException e) {
-            throw new CommandExecuteException("应用删除失败!", e);
+            return executeCommand(cmd);
+        } catch (Exception e) {
+            logger.error("命令[{}]执行失败!", cmd.toString(), e);
+            throw new CommandExecuteException("应用删除失败!原因:" + e.getMessage());
         }
     }
 

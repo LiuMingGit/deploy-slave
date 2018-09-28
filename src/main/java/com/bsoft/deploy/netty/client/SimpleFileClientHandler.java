@@ -32,16 +32,16 @@ public class SimpleFileClientHandler extends SimpleChannelInboundHandler<Object>
             boolean success = fileReceive(file);
             Order order = new Order();
             order.setType(Constant.CMD_FILE_STATUS);
-            Map<String,Object> resp = new HashMap<>();
-            resp.put("updateId",file.getUpdateId());
-            resp.put("success",success);
-            resp.put("slaveAppId",file.getSlaveAppId());
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("updateId", file.getUpdateId());
+            resp.put("success", success);
+            resp.put("slaveAppId", file.getSlaveAppId());
             order.setRespData(resp);
             channelHandlerContext.channel().writeAndFlush(order);
         } else if (o instanceof Order) {
             Order order = (Order) o;
             orderReceive(order);
-            if(order.getUniqueId() != null) {
+            if (order.getUniqueId() != null) {
                 channelHandlerContext.channel().writeAndFlush(order);
             }
         }
@@ -54,8 +54,7 @@ public class SimpleFileClientHandler extends SimpleChannelInboundHandler<Object>
      */
     private boolean fileReceive(AppFile file) {
         try {
-            FileWorker fw = new FileWorker();
-            if (fw.receive(file)) {
+            if (FileWorker.receive(file)) {
                 logger.info(file.getName() + " 同步成功");
                 return true;
             } else {
@@ -77,7 +76,7 @@ public class SimpleFileClientHandler extends SimpleChannelInboundHandler<Object>
         try {
             order.setRespData(OrderRunner.execute(order));
         } catch (Exception e) {
-            logger.error("命令处理失败!", e);
+            logger.error("命令处理失败!" + e.getMessage(), e);
             Map<String, Object> respData = new HashMap<>();
             respData.put("code", 300);
             respData.put("message", e.getMessage());
